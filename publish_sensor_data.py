@@ -16,6 +16,13 @@ frame_rgb = None
 frame_laser = None
 frame_depth = None
 imu_data = None
+
+sensor_data = {
+    "rgb_frame" : None,
+    "rgb_frame_stamp": None,
+    "imu_data": None,
+    "imu_data_stamp": None
+}
 #bridge = CvBridge()
 event_rgb = Event()
 event_laser = Event()
@@ -23,7 +30,7 @@ event_depth = Event()
 event_imu = Event()
 
 def on_imu(data):
-    global imu_data
+    global imu_data, sensor_data
     x = data.orientation.x
     y = data.orientation.y
     z = data.orientation.z
@@ -35,7 +42,7 @@ def on_imu(data):
     if(-1<=f<=1):
         p = math.asin(f)
     y = math.atan2(2*(w*z+x*y),1-2*(z*z+y*y))
-    
+
     roll = round(r*180/math.pi, 2)
     pitch = round(p*180/math.pi, 2)
     yaw = round(y*180/math.pi, 2)
@@ -44,6 +51,8 @@ def on_imu(data):
         "roll" : roll,
         "pitch" : pitch,
     }
+
+    sensor_data["imu_data"] = imu_data
     event_imu.set()
 
 def on_depth(data):
@@ -190,6 +199,12 @@ def connection():
 def get_imu():
     global imu_data
     return imu_data
+
+@app.route('/upload_sensor_data', methods=['POST'])
+@cross_origin()
+def upload_sensor_data():
+    global sensor_data
+    return sensor_data
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000 ,debug=True)
