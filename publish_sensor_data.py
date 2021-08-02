@@ -107,7 +107,7 @@ def on_image(data):
     frame_rgb = cv2.imencode(".jpg",rgb)[1].tobytes()
 
     #sensor_data["rgb_frame"] = rgb.tolist()
-    sensor_data["rgb_frame"] = list(frame_rgb)
+    sensor_data["rgb_frame"] = list(data.data)
     sensor_data["rgb_frame_stamp"] = data.header.stamp.to_sec()
     sensor_data["rgb_frame_seq"] = data.header.seq
     event_rgb.set()
