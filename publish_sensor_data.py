@@ -10,6 +10,7 @@ import numpy as np
 import math
 from flask_cors import *
 import math
+import json
 # import matplotlib.pyplot as plt
 # cmap = plt.cm.inferno
 frame_rgb = None
@@ -20,8 +21,10 @@ imu_data = None
 sensor_data = {
     "rgb_frame" : None,
     "rgb_frame_stamp": None,
+    "rgb_frame_seq": None,
     "imu_data": None,
-    "imu_data_stamp": None
+    "imu_data_stamp": None,
+    "imu_data_seq": None
 }
 #bridge = CvBridge()
 event_rgb = Event()
@@ -53,6 +56,8 @@ def on_imu(data):
     }
 
     sensor_data["imu_data"] = imu_data
+    sensor_data["imu_data_stamp"] = data.header.stamp.to_sec()
+    sensor_data["imu_data_seq"] = data.header.seq
     event_imu.set()
 
 def on_depth(data):
@@ -76,7 +81,7 @@ def on_depth(data):
     event_depth.set()
 
 def on_image(data):
-    global frame_rgb
+    global frame_rgb, sensor_data
     #cv_image = cv2.flip(cv2.flip(bridge.imgmsg_to_cv2(msg, desired_encoding = "passthrough"),0),1)
     #cv_image = cv2.rotate(bridge.imgmsg_to_cv2(msg, desired_encoding = "passthrough"), cv2.ROTATE_90_CLOCKWISE)
     #frame = cv2.imencode(".jpg",cv_image)[1].tobytes()
@@ -90,6 +95,11 @@ def on_image(data):
         #rgb[i] = data.data[i]
     rgb = rgb.reshape((data.height, data.width, 3))[:,:,::-1]
     frame_rgb = cv2.imencode(".jpg",rgb)[1].tobytes()
+
+    #sensor_data["rgb_frame"] = rgb.tolist()
+    sensor_data["rgb_frame"] = list(frame_rgb)
+    sensor_data["rgb_frame_stamp"] = data.header.stamp.to_sec()
+    sensor_data["rgb_frame_seq"] = data.header.seq
     event_rgb.set()
 
 def on_laser(data):
@@ -200,11 +210,21 @@ def get_imu():
     global imu_data
     return imu_data
 
+class MyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, bytes):
+            return str(obj, encoding='utf-8');
+        return json.JSONEncoder.default(self, obj)
+
+
 @app.route('/upload_sensor_data', methods=['POST'])
 @cross_origin()
 def upload_sensor_data():
     global sensor_data
     return sensor_data
+    #return json.dumps(sensor_data,cls=MyEncoder,indent=4)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000 ,debug=True)
