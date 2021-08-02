@@ -41,7 +41,7 @@ def on_depth(data):
     event_depth.set()
 
 def on_image(data):
-    global frame
+    global frame_rgb
     #cv_image = cv2.flip(cv2.flip(bridge.imgmsg_to_cv2(msg, desired_encoding = "passthrough"),0),1)
     #cv_image = cv2.rotate(bridge.imgmsg_to_cv2(msg, desired_encoding = "passthrough"), cv2.ROTATE_90_CLOCKWISE)
     #frame = cv2.imencode(".jpg",cv_image)[1].tobytes()
