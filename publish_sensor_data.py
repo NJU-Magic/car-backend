@@ -60,6 +60,9 @@ def on_imu(data):
         "yaw" : yaw,
         "roll" : roll,
         "pitch" : pitch,
+        "x":1,
+        "y":1,
+        "z":1
     }
 
     sensor_data["imu_data"] = imu_data
