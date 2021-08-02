@@ -35,11 +35,10 @@ def on_imu(data):
     if(-1<=f<=1):
         p = math.asin(f)
     y = math.atan2(2*(w*z+x*y),1-2*(z*z+y*y))
-
+    
     roll = round(r*180/math.pi, 2)
     pitch = round(p*180/math.pi, 2)
     yaw = round(y*180/math.pi, 2)
-
     imu_data = {
         "yaw" : yaw,
         "roll" : roll,
