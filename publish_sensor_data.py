@@ -24,7 +24,14 @@ sensor_data = {
     "rgb_frame_seq": None,
     "imu_data": None,
     "imu_data_stamp": None,
-    "imu_data_seq": None
+    "imu_data_seq": None,
+    "depth_raw": None,
+    "depth_raw_stamp": None,
+    "depth_raw_seq": None,
+    "lidar_raw": None,
+    "lidar_raw_stamp": None,
+    "lidar_raw_seq": None,
+    "camera_intrin": None,
 }
 #bridge = CvBridge()
 event_rgb = Event()
