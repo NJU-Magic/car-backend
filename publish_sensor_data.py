@@ -4,21 +4,48 @@ from threading import Thread, Event
 from flask import Flask, render_template, Response
 import signal, sys
 #from cv_bridge import CvBridge
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, Imu
 from sensor_msgs.msg import LaserScan # 激光雷达
 import numpy as np
 import math
 from flask_cors import *
-
+import math
 # import matplotlib.pyplot as plt
 # cmap = plt.cm.inferno
 frame_rgb = None
 frame_laser = None
 frame_depth = None
+imu_data = None
 #bridge = CvBridge()
 event_rgb = Event()
 event_laser = Event()
 event_depth = Event()
+event_imu = Event()
+
+def on_imu(data):
+    global imu_data
+    x = data.orientation.x
+    y = data.orientation.y
+    z = data.orientation.z
+    w = data.orientation.w
+
+    r = math.atan2(2*(w*x+y*z),1-2*(x*x+y*y))
+    f = 2*(w*y-z*z)
+    p = 0
+    if(-1<=f<=1):
+        p = math.asin(f)
+    y = math.atan2(2*(w*z+x*y),1-2*(z*z+y*y))
+
+    roll = round(r*180/math.pi, 2)
+    pitch = round(p*180/math.pi, 2)
+    yaw = round(y*180/math.pi, 2)
+
+    imu_data = {
+        "yaw" : yaw,
+        "roll" : roll,
+        "pitch" : pitch,
+    }
+    event_imu.set()
 
 def on_depth(data):
     global frame_depth
@@ -84,6 +111,7 @@ Thread(target=lambda: rospy.init_node('cam_listener', disable_signals=True)).sta
 rospy.Subscriber("/camera/image", Image, on_image)
 rospy.Subscriber("/lidar/scan", LaserScan, on_laser) #激光雷达
 rospy.Subscriber("/camera/depth/image", Image, on_depth)
+rospy.Subscriber("/imu/data", Imu, on_imu)
 #深度图
 
 app = Flask(__name__)
@@ -157,6 +185,12 @@ signal.signal(signal.SIGINT,signal_handler)
 def connection():
     return {}
 
+
+@app.route('/imu', methods=['POST'])
+@cross_origin()
+def get_imu():
+    global imu_data
+    return imu_data
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000 ,debug=True)
