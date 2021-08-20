@@ -10,6 +10,8 @@ import math
 from flask_cors import *
 import math
 import json
+import time
+import copy
 # import matplotlib.pyplot as plt
 # cmap = plt.cm.inferno
 frame_rgb = None
@@ -23,13 +25,17 @@ sensor_data = {
     "rgb_frame" : None,
     "rgb_frame_stamp": None,
     "rgb_frame_seq": None,
+    "rgb_size": None,
     "imu_data": None,
     "imu_data_stamp": None,
     "imu_data_seq": None,
     "depth_raw": None,
     "depth_raw_stamp": None,
     "depth_raw_seq": None,
-    "lidar_raw": None,
+    "depth_size": None,
+    "lidar_angle_min": None,
+    "lidar_angle_increment": None,
+    "lidar_ranges": None,
     "lidar_raw_stamp": None,
     "lidar_raw_seq": None,
     "rgb_intrin": None,
@@ -81,6 +87,7 @@ def on_depth(data):
     depth32 = depth32.reshape((data.height, data.width))
     depth = np.zeros((data.height, data.width))
     depth = depth + depth32
+    depth_to_upload = copy.deepcopy(depth)
     depth[np.isnan(depth)] = 0
     #np.save("a.npy",depth)
     r = np.max(depth) - np.min(depth)
@@ -90,10 +97,12 @@ def on_depth(data):
         depth = np.zeros((data.height, data.width))
     depth = depth.astype(np.uint8)
     # color_depth = 255*cmap(depth)[:,:,:3]
-    color_depth = cv2.applyColorMap(depth,cv2.COLORMAP_JET)
-    frame_depth = cv2.imencode(".jpg", color_depth)[1].tobytes()
+    frame_depth = cv2.imencode(".jpg", depth)[1].tobytes()
 
-    sensor_data["depth_raw"] = list(data.data)
+    sensor_data["depth_size"] = [data.height, data.width]
+    #sensor_data["depth_raw"] = list(data.data)
+    sensor_data["depth_raw"] = list(cv2.imencode(".png", depth_to_upload)[1].tobytes())
+    
     sensor_data["depth_raw_stamp"] = data.header.stamp.to_sec()
     sensor_data["depth_raw_seq"] = data.header.seq
     event_depth.set()
@@ -108,16 +117,21 @@ def on_image(data):
     total_length = data.height * data.step
     #print(data.height, data.width, data.step)
     #rgb = np.zeros(data.height * data.width * 3)
+    #start = time.time()
     rgb = np.frombuffer(data.data, dtype=np.uint8)
     #for i in range(total_length):
         #rgb[i] = data.data[i]
     rgb = rgb.reshape((data.height, data.width, 3))[:,:,::-1]
     frame_rgb = cv2.imencode(".jpg",rgb)[1].tobytes()
-
+    #print(type(cv2.imencode(".jpg", rgb)[1]))
     #sensor_data["rgb_frame"] = rgb.tolist()
-    sensor_data["rgb_frame"] = list(data.data)
+    sensor_data["rgb_size"] = [h, w]
+    #sensor_data["rgb_frame"] = list(data.data)
+    sensor_data["rgb_frame"] = list(frame_rgb)
     sensor_data["rgb_frame_stamp"] = data.header.stamp.to_sec()
     sensor_data["rgb_frame_seq"] = data.header.seq
+    #end = time.time()
+    #print(end-start)
     event_rgb.set()
 
 def on_lidar(data):
@@ -139,7 +153,10 @@ def on_lidar(data):
     cv2.circle(img, (300, 300), 2, (255, 255, 0))
     frame_lidar = cv2.imencode(".jpg",img)[1].tobytes()
 
-    sensor_data["lidar_raw"] = list(data.data)
+    #sensor_data["lidar_raw"] = list(data.data)
+    sensor_data["lidar_angle_min"] = data.angle_min
+    sensor_data["lidar_angle_increment"] = data.angle_increment
+    sensor_data["lidar_ranges"] = list(data.ranges)
     sensor_data["lidar_raw_stamp"] = data.header.stamp.to_sec()
     sensor_data["lidar_raw_seq"] = data.header.seq
     event_lidar.set()
@@ -176,7 +193,7 @@ rospy.Subscriber("/scan", LaserScan, on_lidar)
 rospy.Subscriber("/camera/depth/image", Image, on_depth)
 rospy.Subscriber("/imu/data", Imu, on_imu)
 rospy.Subscriber("/camera/camera_info", CameraInfo, on_rgb_intrin)
-#rospy.Subscriber("/camera/depth/camera_info", CameraInfo, on_depth_intrin)
+rospy.Subscriber("/camera/depth/camera_info", CameraInfo, on_depth_intrin)
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -222,6 +239,7 @@ def gen_rgb():
         frame = get_frame()
         yield (b'--frame\r\n'
                 b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                
 @app.route('/video_feed')
 def video_feed():
     return Response(gen_rgb(),
